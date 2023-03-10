@@ -4,13 +4,13 @@ import sys
 import wizlib
 import ww_utils
 
-START_WORD = "soare"  # A shortcut
+START_WORD = "irate"  # A shortcut
 
 
 def play(word: str, ww: wizlib.WordleWiz):
   """Play one game and return the number of rounds played."""
   ww.reset()
-  round_count = 1
+  round_count = 0
   selected_word = START_WORD
   result = None
   while not ww_utils.got_it(result):
