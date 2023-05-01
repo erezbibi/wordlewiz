@@ -10,7 +10,7 @@ import functools
 import operator
 import string
 
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set, Optional, Iterator
 from ww_utils import ResultChars, POSSIBLE_RESULT_CHARS, MAX_WORD_LEN, LETTERS
 
 
@@ -51,26 +51,22 @@ class Knowladge:
         buff.append("Count: %s" % self.count)
     return " | ".join(buff)
     
-  
 
 class WordleWiz:
   """A class to solve wordle."""
   
-  def __init__(self, all_words: Set[str], used_words: Optional[Set[str]] = None):
+  def __init__(self, words: Set[str], used_words: Optional[Set[str]] = None):
     """Load word list(s) from file(s)."""
-    if not all_words:
+    if not words:
       raise WordleWizError("Words list is empty")
-    words_len = set(len(word) for word in all_words)
+    words_len = set(len(word) for word in words)
     if len(words_len) > 1:
       raise WordleWizError("Not all words are of the same length %s", words_len)
     self.word_len = words_len.pop()
     if self.word_len > MAX_WORD_LEN:
       raise WordleWizError("Word length of {length} is too long".format(length=self.word_len))
-    self.words = frozenset(all_words)
-    if used_words:
-      self.used_words = frozenset(used_words)
-    else:
-      self.used_words = frozenset()
+    self.words = frozenset(words)
+    self.used_words = frozenset(used_words or [])
     self.reset()
     
   @property
@@ -96,8 +92,7 @@ class WordleWiz:
           
   def reset(self):
     """Start from the beginning."""
-    self.possible_words = tuple(sorted(self.words))
-    self.num_possible = len(self.possible_words)
+    self._set_possible(sorted(self.words))
     self._knowladge = collections.defaultdict(Knowladge)
     self._population = None
     self._scores = None
@@ -143,6 +138,8 @@ class WordleWiz:
               .format(char=c,
                       pos=self._knowladge[c].in_position & self._knowladge[c].not_in_position))
     self._filter_possibilities()
+    if self.num_possible == 0:
+      raise WordleWizError("No possible words left")
     
   def is_word(self, word) -> bool:
     return word in self.words
@@ -151,11 +148,15 @@ class WordleWiz:
     if not self._scores:
       return 0
     return round(100 * self._scores.get(word, 0), 2)
+    
+  ## Visible for testing.
+  def _set_possible(self, possible_words: Iterator[str]) -> None:
+    self.possible_words = tuple(possible_words)
+    self.num_possible = len(self.possible_words)
           
   def _filter_possibilities(self) -> None:
     """Filter possible words based on new knowladge."""
-    self.possible_words = tuple(word for word in self.possible_words if self._valid_word(word))
-    self.num_possible = len(self.possible_words)
+    self._set_possible(word for word in self.possible_words if self._valid_word(word))
     
   def _valid_word(self, word) -> bool:
     """Is a word valid according to our knowladge?"""
@@ -195,7 +196,7 @@ class WordleWiz:
   def _score(self, word, population: Dict[str, Population]) -> float:
     """Score a word."""
     # Score is a combination of probelability of an event multiply by the reletive possibilities
-    # reduction. Max reduction is into a single possible word. Each letter has three events
+    # reduction. The max reduction is into a single possible word. Each letter has three events
     # (results), not-in-word, exact-position, and not-exact-position.
     # (Population / Total) * ((T - P) / (T - 1))
     # P / T -- Probability.
@@ -206,7 +207,7 @@ class WordleWiz:
     # number of possible words because the scores for each letter will not be unrelated to each
     # other.
     if self.num_possible == 1:
-      return 1
+      return 1.0
     scores = []
     # Not in word (omit double+ letters)
     for c in set(word):
@@ -215,11 +216,11 @@ class WordleWiz:
     for i, c in enumerate(word):
       # In  the exact position.
       scores.append(self._calculate_score(population[c].position_count[i], self.num_possible))
-      # In word but in other positions (words wil double letters will get skewed).
+      # In word but in other positions (words with double letters will get skewed).
       scores.append(
           self._calculate_score(
               population[c].word_count - population[c].position_count[i], self.num_possible))
-    # Probablity that this is the word we look for.
+    # Finally, if the word might be the one, it will eliminate all other posibillities.
     if word in self.used_words:
       scores.append(self._calculate_score(1, self.num_possible))
     return self._combine_scores(scores)
@@ -228,6 +229,7 @@ class WordleWiz:
   def _calculate_score(cls, p: int, t: int) -> float:
     return (float(p) / t) * (float(t - p) / (t - 1))
     
+  @classmethod
   def _combine_scores(cls, scores: float) -> float:
     return 1 - functools.reduce(operator.mul, (1 - s for s in scores), 1)
   

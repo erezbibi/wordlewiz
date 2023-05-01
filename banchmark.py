@@ -22,11 +22,10 @@ def play(word: str, ww: wizlib.WordleWiz):
 
 
 if __name__ == "__main__":
-  ww = wizlib.WordleWiz(ww_utils.read_words(ww_utils.USED_WORDS_FILE),
-                        ww_utils.read_words(ww_utils.USED_WORDS_FILE))
+  ww = wizlib.WordleWiz(ww_utils.read_words(ww_utils.USED_WORDS_FILE))
   stats = {}
-  total = len(ww.used_words)
-  for count, word in enumerate(list(ww.used_words)):
+  total = len(ww.words)
+  for count, word in enumerate(list(ww.words)):
     stats[word] = play(word, ww)
     sys.stdout.write("\r{done}/{total}   ".format(done=count, total=total))
   print("\nStats:")

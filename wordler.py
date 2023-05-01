@@ -9,7 +9,7 @@ def _get_test_word(ww: wizlib.WordleWiz) -> str:
   test_word = input("Input a word (Enter for interactive, ? for random): ")
   if test_word:
     if test_word == "?":
-      test_word = random.choice(list(ww.used_words or ww.words))
+      test_word = random.choice(list(ww.words))
     if len(test_word) != ww.word_len:
       raise RuntimeError("Wrong word length")
     if test_word not in ww.words:
@@ -55,7 +55,8 @@ def _handle_info(command: str, ww: wizlib.WordleWiz) -> None:
 
 if __name__ == "__main__":
   try:
-    ww = wizlib.WordleWiz(ww_utils.read_words(ww_utils.USED_WORDS_FILE))
+    ww = wizlib.WordleWiz(ww_utils.read_words(ww_utils.ALL_WORDS_FILE),
+                          ww_utils.read_words(ww_utils.USED_WORDS_FILE))
     test_word = _get_test_word(ww)
     round_count = 0
     result = None
